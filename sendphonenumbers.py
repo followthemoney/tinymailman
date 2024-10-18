@@ -30,7 +30,7 @@ def parse_spusu():
     header = parse_header(raw_header)
 
     r = requests.get(url, headers=header).text
-    numbers = [x.text for x in bs(r, "lxml").select("#selectnewNumberSelect0 option")]
+    numbers = [x.text for x in bs(r).select("#selectnewNumberSelect0 option")]
 
     # return phone numbers as a plaintext list
     return "\n".join(numbers)
