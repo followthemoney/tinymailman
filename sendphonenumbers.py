@@ -30,10 +30,12 @@ def parse_spusu():
     header = parse_header(raw_header)
 
     r = requests.get(url, headers=header).text
-    numbers = [x.text for x in bs(r).select("#selectnewNumberSelect0 option")]
+    
+    numbers = '\n'.join([x.text for x in bs(r).select("#selectnewNumberSelect0 option")])
 
     # return phone numbers as a plaintext list
-    return "\n".join(numbers)
+    # print(numbers)
+    return numbers
 
 def send_email():
 
@@ -45,18 +47,14 @@ def send_email():
     USERNAME = os.getenv("USER_EMAIL")
     PASSWORD = os.getenv("USER_PASSWORD")
 
-    message = MIMEMultipart()
-    message["Subject"] = subject
-    message["From"] = USERNAME
-    message["To"] = USERNAME
-
-    message.attach(MIMEText(body, "plain"))
+    messagestring = f"Subject: {subject}\n\n{body}"
+    print(messagestring)
 
     try:
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
             server.login(USERNAME, PASSWORD)
-            server.sendmail(USERNAME, USERNAME, message.as_string())
+            server.sendmail(USERNAME, USERNAME, messagestring)
             print("Email sent successfully")
     except Exception as e:
         print("Error sending email: ", e)
