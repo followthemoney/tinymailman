@@ -31,11 +31,23 @@ def parse_spusu():
 
     r = requests.get(url, headers=header).text
     
-    numbers = '\n'.join([x.text for x in bs(r).select("#selectnewNumberSelect0 option")])
+    # get the phone numbers available
+    numbers = [x.text for x in bs(r).select("#selectnewNumberSelect0 option")]
+    
+    # count the unique characters in the phone number
+    counts = {}
+    for n in numbers:
+        counts[n] = len(set(n))
+
+    # sort the dictionary based on the unique numbers in the phone numbers
+    c = []
+    for n, count in dict(sorted(counts.items(), key=lambda item: item[1])).items():
+        c.append(f"{n} : {count} unique characters")
 
     # return phone numbers as a plaintext list
-    # print(numbers)
-    return numbers
+    results = '\n'.join(c)
+
+    return results
 
 def send_email():
 
