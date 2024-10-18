@@ -39,7 +39,7 @@ def parse_spusu():
 
 def send_email():
 
-    subject="Chose a phone number",
+    subject="Chose a phone number"
     body= parse_spusu()
 
     port = 465  # For SSL
