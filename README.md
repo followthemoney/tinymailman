@@ -1,18 +1,2 @@
 # tinymailman
-Tiny robot that scrapes the spusu website for current new phone numbers and sends an email every 6 hours with numbers available and the amount of unique numbers in the phone number.
-
-Example email:
-
-```
-0670 359 3760 : 7 unique characters
-0670 359 3830 : 8 unique characters
-0670 359 3720 : 8 unique characters
-0670 359 3838 : 8 unique characters
-0670 359 3837 : 8 unique characters
-0670 359 3829 : 9 unique characters
-0670 359 3831 : 9 unique characters
-0670 359 3827 : 9 unique characters
-0670 359 3841 : 10 unique characters
-0670 359 3842 : 10 unique characters
-```
-
+Tiny robot that scrapes the [one](https://curia.europa.eu/en/content/juris/c2_juris.htm) [two](https://curia.europa.eu/en/content/juris/t2_juris.htm) curia websites every day and checks for new cases and sends an email to Alex and Leonie.
