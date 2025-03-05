@@ -1,0 +1,65 @@
+name: CURIA Website Monitor
+
+on:
+  schedule:
+    # Run once per day at 9:00 UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pandas python-dotenv
+      
+      - name: Download previous artifact (as backup)
+        uses: actions/download-artifact@v3
+        with:
+          name: curia-data
+          path: artifact_data
+        continue-on-error: true  # Continue even if no previous artifact exists
+      
+      - name: Check for website updates
+        run: python sendupdates.py
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+      
+      - name: Upload artifact (for short-term redundancy)
+        uses: actions/upload-artifact@v3
+        with:
+          name: curia-data
+          path: artifact_data
+          retention-days: 90  # Maximum allowed retention period
+      
+      # Commit data back to the repository for permanent storage
+      - name: Commit data to repository
+        run: |
+          # Create permanent storage directory if it doesn't exist
+          mkdir -p permanent_data
+          
+          # Copy the latest data files
+          cp -r artifact_data/* permanent_data/
+          
+          # Setup git config
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          
+          # Add, commit and push
+          git add permanent_data/
+          git commit -m "Update CURIA data [skip ci]" || echo "No changes to commit"
+          git push

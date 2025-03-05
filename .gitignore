@@ -1,4 +1,2 @@
 .env
 .venv
-curia_data
-curia_monitor.log
