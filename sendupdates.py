@@ -7,10 +7,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import datetime
-import json
-import zipfile
-import io
-import sys
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -28,11 +24,9 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")  # Use app password for Gmail
 EMAIL_RECEIVERS = os.getenv("EMAIL_RECEIVERS", "").split(',')
 EMAIL_SUBJECT = "CURIA Website Update Alert"
 
-# Data storage configuration
-ARTIFACT_DIR = "artifact_data"  # For GitHub Actions artifacts (short-term)
-PERMANENT_DIR = "permanent_data"  # For permanent storage in the repository
-os.makedirs(ARTIFACT_DIR, exist_ok=True)
-os.makedirs(PERMANENT_DIR, exist_ok=True)
+# Permanent data storage configuration (stored in Git repository)
+DATA_DIR = "permanent_data"
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Print environment configuration (without password)
 print(f"Environment loaded from .env file")
@@ -139,60 +133,13 @@ def get_current_data(url):
         print(f"Error scraping website {url}: {str(e)}")
         return pd.DataFrame()
 
-def get_data_filename(court_name, permanent=False):
-    """Generate a filename for storing data for a specific court
-    
-    Args:
-        court_name: Name of the court
-        permanent: If True, use permanent storage directory, otherwise use artifact directory
-    """
-    directory = PERMANENT_DIR if permanent else ARTIFACT_DIR
-    return os.path.join(directory, f"{court_name.replace(' ', '_').lower()}_data.csv")
-
-def check_for_previous_data():
-    """
-    Check for previous data from either permanent storage or the artifact
-    
-    Returns:
-        tuple: (has_data, source) where source is 'permanent', 'artifact', or None
-    """
-    # First, check permanent storage
-    print(f"Checking for previous data in permanent storage ({PERMANENT_DIR})")
-    has_permanent_data = os.path.exists(PERMANENT_DIR) and any(
-        os.path.exists(get_data_filename(court, permanent=True)) for court in URLS.keys()
-    )
-    
-    if has_permanent_data:
-        print("Found previous data in permanent storage")
-        # Copy permanent data to artifact directory to ensure we're working with the latest data
-        for court_name in URLS.keys():
-            permanent_file = get_data_filename(court_name, permanent=True)
-            artifact_file = get_data_filename(court_name, permanent=False)
-            if os.path.exists(permanent_file):
-                import shutil
-                print(f"Copying permanent data for {court_name} to working directory")
-                shutil.copy2(permanent_file, artifact_file)
-        return True, 'permanent'
-    
-    # If no permanent data, check artifact
-    print(f"Checking for previous artifact data in {ARTIFACT_DIR}")
-    has_artifact_data = os.path.exists(ARTIFACT_DIR) and any(
-        os.path.exists(get_data_filename(court, permanent=False)) for court in URLS.keys()
-    )
-    
-    if has_artifact_data:
-        print("Found previous data in artifact storage")
-        return True, 'artifact'
-    
-    print("No previous data found in either location")
-    return False, None
+def get_data_filename(court_name):
+    """Generate a filename for storing data for a specific court"""
+    return os.path.join(DATA_DIR, f"{court_name.replace(' ', '_').lower()}_data.csv")
 
 def check_for_updates():
     """Check for updates on all websites and save current data for future comparisons"""
     updates = {}
-    
-    # Check for previous data in either permanent or artifact storage
-    has_previous_data, data_source = check_for_previous_data()
     
     for court_name, url in URLS.items():
         print(f"Checking for updates on {court_name} website")
@@ -215,7 +162,7 @@ def check_for_updates():
         print(f"Using '{id_column}' as unique identifier")
         
         # Load previous data if exists
-        if has_previous_data and os.path.exists(data_file):
+        if os.path.exists(data_file):
             try:
                 previous_data = pd.read_csv(data_file)
                 
@@ -244,21 +191,12 @@ def check_for_updates():
                     # Update reference file with all current data
                     current_data.to_csv(data_file, index=False)
                     print(f"Updated reference data with {len(current_data)} total entries")
-                    
-                    # Also save to permanent storage
-                    permanent_file = get_data_filename(court_name, permanent=True)
-                    current_data.to_csv(permanent_file, index=False)
-                    print(f"Updated permanent storage with {len(current_data)} entries")
                 else:
                     print(f"No new entries found for {court_name}")
                     updates[court_name] = pd.DataFrame(columns=current_data.columns)
                     
                     # Still save current data to keep timestamps updated
                     current_data.to_csv(data_file, index=False)
-                    
-                    # Also update permanent storage
-                    permanent_file = get_data_filename(court_name, permanent=True)
-                    current_data.to_csv(permanent_file, index=False)
                     
             except Exception as e:
                 print(f"Error processing previous data: {str(e)}")
@@ -269,12 +207,6 @@ def check_for_updates():
                 # Save current data as reference
                 current_data.to_csv(data_file, index=False)
                 print(f"Created new reference data with {len(current_data)} entries")
-                
-                # Also save to permanent storage
-                permanent_file = get_data_filename(court_name, permanent=True)
-                current_data.to_csv(permanent_file, index=False)
-                print(f"Created permanent storage data with {len(current_data)} entries")
-                
                 updates[court_name] = current_data
         else:
             print(f"No previous data file found for {court_name}. Creating new reference data.")
@@ -282,22 +214,13 @@ def check_for_updates():
             # Save current data as reference
             current_data.to_csv(data_file, index=False)
             print(f"Created new reference data with {len(current_data)} entries")
-            
-            # Also save to permanent storage
-            permanent_file = get_data_filename(court_name, permanent=True)
-            current_data.to_csv(permanent_file, index=False)
-            print(f"Created permanent storage data with {len(current_data)} entries")
-            
             updates[court_name] = current_data
     
     # Send email with all updates
     send_email(updates)
     
-    print(f"Completed data analysis. Artifact data saved to {ARTIFACT_DIR}")
-    print(f"Permanent data saved to {PERMANENT_DIR}")
-    # In a GitHub Actions workflow:
-    # - The artifact directory will be uploaded as a temporary artifact
-    # - The permanent directory will be committed back to the repository
+    print(f"Completed data analysis. Data saved to {DATA_DIR}")
+    print("This directory will be committed to the repository for permanent storage")
 
 if __name__ == "__main__":
     print(f"--- Running CURIA website check at {datetime.datetime.now()} ---")
